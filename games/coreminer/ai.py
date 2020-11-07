@@ -45,6 +45,9 @@ class AI(BaseAI):
         """This is called every time the game's state updates, so if you are tracking anything you can update it here.
         """
 
+        # <<-- Creer-Merge: game-updated -->> - Code you add between this comment and the end comment will be preserved between Creer re-runs.
+        # replace with your game updated logic
+        # <<-- /Creer-Merge: game-updated -->>
 
     def end(self, won: bool, reason: str) -> None:
         """This is called when the game ends, you can clean up your data and dump files here if need be.
@@ -58,11 +61,12 @@ class AI(BaseAI):
         # <<-- /Creer-Merge: end -->>
     def run_turn(self) -> bool:
         """This is called every time it is this AI.player's turn.
+
         Returns:
             bool: Represents if you want to end your turn. True means end your turn, False means to keep your turn going and re-call this function.
         """
         end_turn = False
-
+        baseEast = False
         if len(self.player.miners) < 1 and self.player.money >= self.game.spawn_price:
             self.player.spawn_miner()
 
@@ -87,26 +91,26 @@ class AI(BaseAI):
             eastTile = miner.tile.tile_east
             westTile = miner.tile.tile_west
 
+
             # Mine east and west tiles, hopper side first
             if eastTile.x == self.player.base_tile.x:
                 if eastTile:
                     miner.mine(eastTile, -1)
-                if westTile:
-                    miner.mine(westTile, -1)
             else:
-                if westTile:
+                if westTile.dirt == 1 or westTile.ore == 1:
                     miner.mine(westTile, -1)
-                if eastTile:
-                    miner.mine(eastTile, -1)
-
+            if sellTile and sellTile.owner == self.player:
+                miner.buy('buildingMaterials', 5)
             # Check to make sure east and west tiles are mined
-            if (eastTile and eastTile.ore + eastTile.dirt == 0) and (westTile and westTile.ore + westTile.dirt == 0):
+            if (eastTile and eastTile.ore + eastTile.dirt == 0) or (westTile and westTile.ore + westTile.dirt == 0):
                 # Dig down
                 if miner.tile.tile_south:
                     miner.mine(miner.tile.tile_south, -1)
+                    miner.build(miner.tile.tile_north, 'ladder')
+
 
         return True
-
+        # <<-- /Creer-Merge: runTurn -->>
 
     def find_path(self, start: 'games.coreminer.tile.Tile', goal: 'games.coreminer.tile.Tile') -> List['games.coreminer.tile.Tile']:
         """A very basic path finding algorithm (Breadth First Search) that when given a starting Tile, will return a valid path to the goal Tile.
