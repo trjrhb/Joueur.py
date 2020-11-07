@@ -35,6 +35,8 @@ class AI(BaseAI):
     def start(self) -> None:
         """This is called once the game starts and your AI knows its player and game. You can initialize your AI here.
         """
+        self.player.spawn_miner()
+        print(self.player._money)
         # <<-- Creer-Merge: start -->> - Code you add between this comment and the end comment will be preserved between Creer re-runs.
         # replace with your start logic
         # <<-- /Creer-Merge: start -->>
@@ -42,6 +44,14 @@ class AI(BaseAI):
     def game_updated(self) -> None:
         """This is called every time the game's state updates, so if you are tracking anything you can update it here.
         """
+        if self.player._money >= 300:
+            self.player.spawn_miner()
+            print(self.player._money)
+
+        for miner in self.player._miners:
+            # Todo identify task
+            # Todo perform task
+            pass
         # <<-- Creer-Merge: game-updated -->> - Code you add between this comment and the end comment will be preserved between Creer re-runs.
         # replace with your game updated logic
         # <<-- /Creer-Merge: game-updated -->>
