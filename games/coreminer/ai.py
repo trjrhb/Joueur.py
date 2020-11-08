@@ -3,7 +3,9 @@
 from typing import List
 from joueur.base_ai import BaseAI
 
-
+# <<-- Creer-Merge: imports -->> - Code you add between this comment and the end comment will be preserved between Creer re-runs.
+# you can add additional import(s) here
+# <<-- /Creer-Merge: imports -->>
 
 class AI(BaseAI):
     """ The AI you add and improve code inside to play Coreminer. """
