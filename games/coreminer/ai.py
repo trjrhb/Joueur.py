@@ -10,7 +10,7 @@ from joueur.base_ai import BaseAI
 class AI(BaseAI):
     """ The AI you add and improve code inside to play Coreminer. """
     team = None
-    ACTIONS = {'IDLE': 1, 'MOVING': 2, 'MINING': 3, 'DEPOSITING': 4, 'BUILDING': 5, 'UPGRADING': 6, 'BOOMING': 7, 'BUYING': 8}
+    ACTIONS = {'IDLE': 1, 'MOVING': 2, 'MINING': 3, 'DEPOSITING': 4, 'BUILDING': 5, 'UPGRADING': 6, 'BOMBING': 7, 'BUYING': 8}
     miner_actions = []
     @property
     def game(self) -> 'games.coreminer.game.Game':
@@ -60,11 +60,14 @@ class AI(BaseAI):
             bool: Represents if you want to end your turn. True means end your turn, False means to keep your turn going and re-call this function.
         """
 
-        if len(self.player.miners) < 10 and self.player.money >= self.game.spawn_price:
+        if len(self.player.miners) < 20 and self.player.money >= 400:
             self.player.spawn_miner()
-            self.miner_actions.append(self.ACTIONS['IDLE'])
+            if len(self.player.miners)%4 == 0:
+                self.miner_actions.append(self.ACTIONS['BOMBING'])
+            else:
+                self.miner_actions.append(self.ACTIONS['IDLE'])
 
-        # ACTIONS = {'IDLE': 1, 'MOVING': 2, 'MINING': 3, 'DEPOSITING': 4, 'BUILDING': 5, 'UPGRADING': 6 }
+        # ACTIONS = {'IDLE': 1, 'MOVING': 2, 'MINING': 3, 'DEPOSITING': 4, 'BUILDING': 5, 'UPGRADING': 6 , 'BOMBING': 7}
         # For each miner
         for index in range(len(self.player.miners)):
             current_miner = self.player.miners[index]
@@ -78,19 +81,18 @@ class AI(BaseAI):
                 else:
                     self.miner_actions[index] = self.ACTIONS['MINING']
 
-
             if self.miner_actions[index] == self.ACTIONS['MINING']:
                 self.mining(self.player.miners[index], index)
             elif self.miner_actions[index] == self.ACTIONS['BUYING']:
                 self.purchase_items(self.player.miners[index], index)
             elif self.miner_actions[index] == self.ACTIONS['DEPOSITING']:
                 self.depositing(self.player.miners[index], index)
-
             elif self.miner_actions[index] == self.ACTIONS['BUILDING']:
                 self.building(self.player.miners[index], index)
-
             elif self.miner_actions[index] == self.ACTIONS['UPGRADING']:
                 self.upgrading(self.player.miners[index], index)
+            elif self.miner_actions[index] == self.ACTIONS['BOMBING']:
+                self.bombing(self.player.miners[index], index)
 
         return True
 
@@ -157,15 +159,17 @@ class AI(BaseAI):
             if (eastTile and eastTile.is_pathable()) or (westTile and westTile.is_pathable()):
                 # Dig down
                 if miner.tile.tile_south:
-                    if miner.tile.is_ladder:
-                        miner.mine(miner.tile.tile_south, -1)
+                    if miner.tile.is_ladder and miner.tile.tile_south != None:
+                        if not miner.tile.tile_south.is_ladder:
+                            miner.mine(miner.tile.tile_south, -1)
                         #southTile = miner.tile.tile_south
                         #if southTile.ore == 0 and southTile.dirt == 0:
 
                             # miner.move(southTile)
                         self.moving(miner, southTile)
             if miner.building_materials > 0 and not miner.tile.is_ladder:
-                miner.build(miner.tile, 'ladder')
+                if miner.tile.x != self.player.base_tile.x:
+                    miner.build(miner.tile, 'ladder')
 
         #Todo Dig forward       break -> place support -> move forward
         if southTile == None:
@@ -215,6 +219,56 @@ class AI(BaseAI):
             self.moving(miner,sellTile)
             miner.upgrade()
             self.miner_actions[miner_index] = self.ACTIONS['IDLE']
+
+    def bombing(self,miner, miner_index):
+        # Move to tile next to base
+        #Todo if on base move move next to it
+        #Todo buy all materials possible
+        #Todo if you have materials place one then move
+        #Todo if not buy building materials
+        #Todo Move mack if needed
+        if self.team == 'right':
+            if miner.tile.is_base:
+                if miner.bombs == 0 and self.player.money > self.game.bomb_price:
+                    miner.buy('bomb', 1)
+                if miner.building_materials < 75 and self.player.money > self.game.building_material_price * 75:
+                    materials_needed = 75 - miner.building_materials
+                    miner.buy('buildingMaterials', materials_needed)
+                if miner.building_materials >= 75 and miner.bombs != 0:
+                    miner.move(miner.tile.tile_west)
+            if miner.tile.tile_west != None:
+                if not miner.tile.tile_west.is_ladder and miner.building_materials > 0:
+                    miner.build(miner.tile.tile_west, 'ladder')
+                    miner.move(miner.tile.tile_west)
+                    if miner.moves == 0:
+                        return True
+            elif miner.tile.tile_west.is_ladder and miner.building_materials == 0:
+                miner.move(miner.tile.tile_east)
+            elif miner.tile.tile_west.is_ladder:
+                miner.move(miner.tile.tile_west)
+            elif miner.tile.tile_west.x == 0:
+                miner.dump(miner.tile.tile_south, 'bomb', 1)
+        else:
+            if miner.tile.is_base:
+                if miner.bombs == 0 and self.player.money > self.game.bomb_price:
+                    miner.buy('bomb', 1)
+                if miner.building_materials < 75 and self.player.money > self.game.building_material_price * 75:
+                    materials_needed = 75 - miner.building_materials
+                    miner.buy('buildingMaterials', materials_needed)
+                if miner.building_materials >= 75 and miner.bombs != 0:
+                    miner.move(miner.tile.tile_east)
+            if miner.tile.tile_east != None:
+                if not miner.tile.tile_east.is_ladder and miner.building_materials > 0:
+                    miner.build(miner.tile.tile_east, 'ladder')
+                    miner.move(miner.tile.tile_east)
+                    if miner.moves == 0:
+                        return True
+            elif miner.tile.tile_east.is_ladder and miner.building_materials == 0:
+                miner.move(miner.tile.tile_west)
+            elif miner.tile.tile_east.is_ladder:
+                miner.move(miner.tile.tile_east)
+            elif miner.tile.tile_east.x == 29:
+                miner.dump(miner.tile.tile_south, 'bomb', 1)
 
     def can_upgrade(self, miner):
         if self.player.money >= 600 and miner.upgrade_level < 3:
@@ -314,73 +368,3 @@ class AI(BaseAI):
     # <<-- Creer-Merge: functions -->> - Code you add between this comment and the end comment will be preserved between Creer re-runs.
     # if you need additional functions for your AI you can add them here
     # <<-- /Creer-Merge: functions -->>
-
-        # WYATTS CODE
-        '''
-        for miner in self.player.miners:
-            if not miner or not miner.tile:
-                continue
-
-
-            # Move to tile next to base
-            if self.team == 'right':
-                miner.buy('buildingMaterials', -1)
-                if not miner.tile.tile_west.is_ladder and miner.tile.tile_west.x != 0:
-                    while miner.moves != 0 and miner.tile.tile_west.x != 0:
-                        miner.build(miner.tile.tile_west, 'ladder')
-                        miner.move(miner.tile.tile_west)
-                        if miner.moves == 0:
-                            return True
-                else:
-                    laddersDone = True
-
-                if laddersDone == True:
-                    if miner.bombs != 0:
-                        if miner.tile.tile_west.x != 0:
-                            while miner.moves != 0:
-                                miner.move(miner.tile.tile_west)
-                                if miner.tile.tile_west.x == 0:
-                                    miner.dump(miner.tile.tile_south, 'bomb', 1)
-                                    return True
-                        else:
-                            miner.dump(miner.tile.tile_south, 'bomb', 1)
-                            return True
-                    else:
-                        if miner.tile.is_base:
-                            miner.buy('bomb', 1)
-                        else:
-                            while miner.tile.is_base != True:
-                                miner.move(miner.tile.tile_east)
-                                if (miner.moves == 0):
-                                    return True;
-            else:
-                miner.buy('buildingMaterials', -1)
-                if not miner.tile.tile_east.is_ladder and miner.tile.tile_east.x != 29:
-                    while miner.moves != 0 and miner.tile.tile_east.x != 29:
-                        miner.build(miner.tile.tile_east, 'ladder')
-                        miner.move(miner.tile.tile_east)
-                        if miner.moves == 0:
-                            return True
-                else:
-                    laddersDone = True
-
-                if laddersDone == True:
-                    if miner.bombs != 0:
-                        if miner.tile.tile_east.x != 29:
-                            while miner.moves != 0:
-                                miner.move(miner.tile.tile_east)
-                                if miner.tile.tile_east.x == 29:
-                                    miner.dump(miner.tile.tile_south, 'bomb', 1)
-                                    return True
-                        else:
-                            miner.dump(miner.tile.tile_south, 'bomb', 1)
-                            return True
-                    else:
-                        if miner.tile.is_base:
-                            miner.buy('bomb', 1)
-                        else:
-                            while miner.tile.is_base != True:
-                                miner.move(miner.tile.tile_west)
-                                if (miner.moves == 0):
-                                    return True;
-            '''
