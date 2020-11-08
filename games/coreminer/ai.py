@@ -69,6 +69,7 @@ class AI(BaseAI):
         if len(self.player.miners) < 1 and self.player.money >= self.game.spawn_price:
             self.player.spawn_miner()
 
+
         # For each miner
         for miner in self.player.miners:
             if not miner or not miner.tile:
@@ -93,10 +94,14 @@ class AI(BaseAI):
                 eastBorder = False
                 if eastTile:
                     miner.mine(eastTile, -1)
+                if westTile.ore > 0:
+                    miner.mine(westTile, -1)
             else:
                 eastBorder = True
                 if westTile:
                     miner.mine(westTile, -1)
+                if eastTile.ore > 0:
+                    miner.mine(eastTile, -1)
 
 
             sellTile = self.game.get_tile_at(self.player.base_tile.x, miner.tile.y)
@@ -116,6 +121,8 @@ class AI(BaseAI):
                             miner.move(southTile)
 
             miner.build(miner.tile, 'ladder')
+            if miner.tile.tile_south == None:
+                bottomWorld=True
 
 
         return True
@@ -184,3 +191,6 @@ class AI(BaseAI):
     # <<-- Creer-Merge: functions -->> - Code you add between this comment and the end comment will be preserved between Creer re-runs.
     # if you need additional functions for your AI you can add them here
     # <<-- /Creer-Merge: functions -->>
+
+
+
