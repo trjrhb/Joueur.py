@@ -44,9 +44,6 @@ class AI(BaseAI):
         """This is called every time the game's state updates, so if you are tracking anything you can update it here.
         """
 
-        # <<-- Creer-Merge: game-updated -->> - Code you add between this comment and the end comment will be preserved between Creer re-runs.
-        # replace with your game updated logic
-        # <<-- /Creer-Merge: game-updated -->>
 
     def end(self, won: bool, reason: str) -> None:
         """This is called when the game ends, you can clean up your data and dump files here if need be.
@@ -55,27 +52,31 @@ class AI(BaseAI):
             won (bool): True means you won, False means you lost.
             reason (str): The human readable string explaining why your AI won or lost.
         """
-        # <<-- Creer-Merge: end -->> - Code you add between this comment and the end comment will be preserved between Creer re-runs.
-        # replace with your end logic
-        # <<-- /Creer-Merge: end -->>
+
     def run_turn(self) -> bool:
         """This is called every time it is this AI.player's turn.
 
         Returns:
             bool: Represents if you want to end your turn. True means end your turn, False means to keep your turn going and re-call this function.
         """
-        end_turn = False
-        baseEast = False
-        if len(self.player.miners) < 1 and self.player.money >= self.game.spawn_price:
-            self.player.spawn_miner()
 
+        if len(self.player.miners) < 3 and self.player.money >= self.game.spawn_price:
+            self.player.spawn_miner()
 
         # For each miner
         for miner in self.player.miners:
             if not miner or not miner.tile:
                 continue
-            if self.player.money >= 500:
-                miner.upgrade()
+
+            sellTile = self.game.get_tile_at(self.player.base_tile.x, miner.tile.y)
+
+            if self.should_deposit(miner):
+                next_move = self.find_path(miner.tile, sellTile)
+                miner.move(next_move[0])
+                if miner.tile == sellTile:
+                    self.sell_material(miner)
+
+            self.purchase_items(miner)
 
             # Move to tile next to base
             if miner.tile.is_base:
@@ -84,34 +85,30 @@ class AI(BaseAI):
                 else:
                     miner.move(miner.tile.tile_west)
 
+            # Mine east and west tiles, hopper side first
             eastTile = miner.tile.tile_east
             westTile = miner.tile.tile_west
 
 
             eastBorder = False
             # Mine east and west tiles, hopper side first
-            if eastTile.x == self.player.base_tile.x:
-                eastBorder = False
-                if eastTile:
-                    miner.mine(eastTile, -1)
-                if westTile.ore > 0:
-                    miner.mine(westTile, -1)
+            if eastTile is None:
+                miner.move(miner.tile.tile_west)
+            elif westTile is None:
+                miner.move(miner.tile.tile_east)
             else:
-                eastBorder = True
-                if westTile:
-                    miner.mine(westTile, -1)
-                if eastTile.ore > 0:
-                    miner.mine(eastTile, -1)
+                if eastTile.x == self.player.base_tile.x:
+                    if eastTile and not eastTile.is_pathable():
+                        miner.mine(eastTile, -1)
+                    if westTile.ore > 0:
+                        miner.mine(westTile, -1)
+                else:
+                    if westTile and not westTile.is_pathable():
+                        miner.mine(westTile, -1)
+                    if eastTile.ore > 0:
+                        miner.mine(eastTile, -1)
 
-
-            sellTile = self.game.get_tile_at(self.player.base_tile.x, miner.tile.y)
-            if sellTile and sellTile.owner == self.player:
-                miner.dump(sellTile, "dirt", -1)
-                miner.dump(sellTile, "ore", -1)
-                if miner.building_materials <= 1:
-                    miner.buy('buildingMaterials', 5)
-
-            if (eastTile and eastTile.ore + eastTile.dirt == 0) or (westTile and westTile.ore + westTile.dirt == 0):
+            if (eastTile and eastTile.is_pathable()) or (westTile and westTile.is_pathable()):
                 # Dig down
                 if miner.tile.tile_south:
                     if miner.tile.is_ladder:
@@ -119,14 +116,27 @@ class AI(BaseAI):
                         southTile = miner.tile.tile_south
                         if southTile.ore == 0 and southTile.dirt == 0:
                             miner.move(southTile)
-
-            miner.build(miner.tile, 'ladder')
-            if miner.tile.tile_south == None:
-                bottomWorld=True
-
-
+            if miner.building_materials > 0 and not miner.tile.is_ladder:
+                miner.build(miner.tile, 'ladder')
         return True
 
+    def should_deposit(self, miner):
+        if miner.ore + miner.dirt >= miner.current_upgrade.cargo_capacity:
+            return True
+        return False
+
+    def sell_material(self,miner):
+        sellTile = self.game.get_tile_at(self.player.base_tile.x, miner.tile.y)
+        if sellTile and sellTile.owner == self.player:
+            miner.dump(sellTile, "dirt", -1)
+            miner.dump(sellTile, "ore", -1)
+
+    def purchase_items(self,miner):
+        sellTile = self.game.get_tile_at(self.player.base_tile.x, miner.tile.y)
+        if self.player.money >= 500 and sellTile:
+            miner.upgrade()
+        if miner.building_materials <= 1:
+            miner.buy('buildingMaterials', 5)
 
     def find_path(self, start: 'games.coreminer.tile.Tile', goal: 'games.coreminer.tile.Tile') -> List['games.coreminer.tile.Tile']:
         """A very basic path finding algorithm (Breadth First Search) that when given a starting Tile, will return a valid path to the goal Tile.
@@ -191,6 +201,3 @@ class AI(BaseAI):
     # <<-- Creer-Merge: functions -->> - Code you add between this comment and the end comment will be preserved between Creer re-runs.
     # if you need additional functions for your AI you can add them here
     # <<-- /Creer-Merge: functions -->>
-
-
-
