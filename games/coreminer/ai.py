@@ -35,8 +35,6 @@ class AI(BaseAI):
     def start(self) -> None:
         """This is called once the game starts and your AI knows its player and game. You can initialize your AI here.
         """
-        self.player.spawn_miner()
-        print(self.player._money)
         # <<-- Creer-Merge: start -->> - Code you add between this comment and the end comment will be preserved between Creer re-runs.
         # replace with your start logic
         # <<-- /Creer-Merge: start -->>
@@ -70,10 +68,14 @@ class AI(BaseAI):
         if len(self.player.miners) < 1 and self.player.money >= self.game.spawn_price:
             self.player.spawn_miner()
 
+
+
         # For each miner
         for miner in self.player.miners:
             if not miner or not miner.tile:
                 continue
+            if self.player.money >= 500:
+                miner.upgrade()
 
             # Move to tile next to base
             if miner.tile.is_base:
@@ -82,11 +84,46 @@ class AI(BaseAI):
                 else:
                     miner.move(miner.tile.tile_west)
 
-            # Sell all materials
+            eastTile = miner.tile.tile_east
+            westTile = miner.tile.tile_west
+
+
+            eastBorder = False;
+            # Mine east and west tiles, hopper side first
+            if eastTile.x == self.player.base_tile.x:
+                eastBorder = False
+                if eastTile:
+                    miner.mine(eastTile, -1)
+            else:
+                eastBorder = True
+                if westTile:
+                    miner.mine(westTile, -1)
+
+
             sellTile = self.game.get_tile_at(self.player.base_tile.x, miner.tile.y)
             if sellTile and sellTile.owner == self.player:
                 miner.dump(sellTile, "dirt", -1)
                 miner.dump(sellTile, "ore", -1)
+                if (miner._building_materials == 0):
+                    miner.buy('buildingMaterials', 5)
+
+            if (eastTile and eastTile.ore + eastTile.dirt == 0) or (westTile and westTile.ore + westTile.dirt == 0):
+                # Dig down
+                if miner.tile.tile_south:
+                    miner.build(miner.tile, 'ladder')
+                    miner.mine(miner.tile.tile_south, -1)
+                    southTile = miner.tile.tile_south
+                    if southTile.ore == 0 and southTile.dirt == 0:
+                        miner.move(southTile)
+
+
+
+            """"# Sell all materials
+            sellTile = self.game.get_tile_at(self.player.base_tile.x, miner.tile.y)
+            if sellTile and sellTile.owner == self.player:
+                miner.dump(sellTile, "dirt", -1)
+                miner.dump(sellTile, "ore", -1)
+                print("selling stuff")
 
             eastTile = miner.tile.tile_east
             westTile = miner.tile.tile_west
@@ -95,20 +132,27 @@ class AI(BaseAI):
             # Mine east and west tiles, hopper side first
             if eastTile.x == self.player.base_tile.x:
                 if eastTile:
-                    miner.mine(eastTile, -1)
+                    miner.mine(eastTile, 1)
             else:
                 if westTile.dirt == 1 or westTile.ore == 1:
-                    miner.mine(westTile, -1)
+                    miner.mine(westTile, 1)
+
+
             if sellTile and sellTile.owner == self.player:
-                miner.buy('buildingMaterials', 5)
+                if miner._building_materials == 0:
+                    miner.buy('buildingMaterials', 5)
+
+
             # Check to make sure east and west tiles are mined
             if (eastTile and eastTile.ore + eastTile.dirt == 0) or (westTile and westTile.ore + westTile.dirt == 0):
                 # Dig down
                 if miner.tile.tile_south:
-                    miner.mine(miner.tile.tile_south, -1)
+                    miner.mine(miner.tile.tile_south, 1)
+                    print(miner._building_materials)
                     miner.build(miner.tile.tile_north, 'ladder')
-
-
+            southTile = miner.tile.tile_south
+            if (southTile.ore + southTile.dirt == 0):
+                miner.mine(miner.tile.tile_west, 1)"""
         return True
         # <<-- /Creer-Merge: runTurn -->>
 
