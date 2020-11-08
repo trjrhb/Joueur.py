@@ -10,7 +10,7 @@ from joueur.base_ai import BaseAI
 class AI(BaseAI):
     """ The AI you add and improve code inside to play Coreminer. """
     team = None
-    ACTIONS = {'IDLE': 1, 'MOVING': 2, 'MINING': 3, 'DEPOSITING': 4, 'BUILDING': 5, 'UPGRADING': 6}
+    ACTIONS = {'IDLE': 1, 'MOVING': 2, 'MINING': 3, 'DEPOSITING': 4, 'BUILDING': 5, 'UPGRADING': 6, 'BOOMING': 7, 'BUYING': 8}
     miner_actions = []
     @property
     def game(self) -> 'games.coreminer.game.Game':
@@ -60,30 +60,29 @@ class AI(BaseAI):
             bool: Represents if you want to end your turn. True means end your turn, False means to keep your turn going and re-call this function.
         """
 
-        if len(self.player.miners) < 3 and self.player.money >= self.game.spawn_price:
+        if len(self.player.miners) < 10 and self.player.money >= self.game.spawn_price:
             self.player.spawn_miner()
             self.miner_actions.append(self.ACTIONS['IDLE'])
-        # ACTIONS = {'IDLE': 1, 'MOVING': 2, 'MINING': 3, 'DEPOSITING': 4, 'BUILDING': 5, 'UPGRADING': 6}
+
+        # ACTIONS = {'IDLE': 1, 'MOVING': 2, 'MINING': 3, 'DEPOSITING': 4, 'BUILDING': 5, 'UPGRADING': 6 }
         # For each miner
         for index in range(len(self.player.miners)):
-            # if not miner or not miner.tile:
-                # continue
             current_miner = self.player.miners[index]
             if self.miner_actions[index] == self.ACTIONS['IDLE']:
                 if self.should_deposit(current_miner):
                     self.miner_actions[index] = self.ACTIONS['DEPOSITING']
+                elif self.should_purchase_items(current_miner):
+                    self.miner_actions[index] = self.ACTIONS['BUYING']
                 elif self.can_upgrade(current_miner):
                     self.miner_actions[index] = self.ACTIONS['UPGRADING']
                 else:
                     self.miner_actions[index] = self.ACTIONS['MINING']
 
 
-            if self.miner_actions[index] == self.ACTIONS['MOVING']:
-                self.moving(self.player.miners[index], index)
-
-            elif self.miner_actions[index] == self.ACTIONS['MINING']:
+            if self.miner_actions[index] == self.ACTIONS['MINING']:
                 self.mining(self.player.miners[index], index)
-
+            elif self.miner_actions[index] == self.ACTIONS['BUYING']:
+                self.purchase_items(self.player.miners[index], index)
             elif self.miner_actions[index] == self.ACTIONS['DEPOSITING']:
                 self.depositing(self.player.miners[index], index)
 
@@ -103,15 +102,22 @@ class AI(BaseAI):
         while moves_left > 0 and len(path) > 0:
             miner.move(path.pop(0))
             moves_left -= 1
+            if moves_left >= 0 and miner.tile.tile_south != None:
+                path = self.find_path(miner.tile, miner.tile.tile_south)
 
     def mining(self, miner, miner_index):
 
         if self.should_deposit(miner):
             self.miner_actions[miner_index] = self.ACTIONS['DEPOSITING']
             self.depositing(miner, miner_index)
-
-        self.purchase_items(miner)
-
+        '''
+        if self.should_purchase_items(miner):
+            self.miner_actions[miner_index] = self.ACTIONS['BUYING']
+            self.purchase_items(miner, miner_index)
+        '''
+        #self.purchase_items(miner, miner_index)
+        if miner.building_materials <= 1:
+            miner.buy('buildingMaterials', 5)
         # Move to tile next to base
         if miner.tile.is_base:
             if miner.tile.tile_east:
@@ -122,8 +128,11 @@ class AI(BaseAI):
                 self.moving(miner, miner.tile.tile_west)
 
         # Mine east and west tiles, hopper side first
+        northTile = miner.tile.tile_north
+        southTile = miner.tile.tile_south
         eastTile = miner.tile.tile_east
         westTile = miner.tile.tile_west
+
 
         # Mine east and west tiles, hopper side first
         if eastTile is None:
@@ -144,17 +153,46 @@ class AI(BaseAI):
                 if eastTile.ore > 0:
                     miner.mine(eastTile, -1)
 
-        if (eastTile and eastTile.is_pathable()) or (westTile and westTile.is_pathable()):
-            # Dig down
-            if miner.tile.tile_south:
-                if miner.tile.is_ladder:
-                    miner.mine(miner.tile.tile_south, -1)
-                    southTile = miner.tile.tile_south
-                    if southTile.ore == 0 and southTile.dirt == 0:
-                        # miner.move(southTile)
+        if southTile != None:
+            if (eastTile and eastTile.is_pathable()) or (westTile and westTile.is_pathable()):
+                # Dig down
+                if miner.tile.tile_south:
+                    if miner.tile.is_ladder:
+                        miner.mine(miner.tile.tile_south, -1)
+                        #southTile = miner.tile.tile_south
+                        #if southTile.ore == 0 and southTile.dirt == 0:
+
+                            # miner.move(southTile)
                         self.moving(miner, southTile)
-        if miner.building_materials > 0 and not miner.tile.is_ladder:
-            miner.build(miner.tile, 'ladder')
+            if miner.building_materials > 0 and not miner.tile.is_ladder:
+                miner.build(miner.tile, 'ladder')
+
+        #Todo Dig forward       break -> place support -> move forward
+        if southTile == None:
+            if self.team == "left":
+                #East
+                if not miner.tile.tile_east.is_pathable():
+                    miner.mine(miner.tile.tile_east, self.determine_block_contents(miner.tile.tile_east))
+                    miner.build(miner.tile.tile_east, 'support')
+                if miner.tile.tile_east.is_pathable():
+                    if not miner.tile.tile_north.is_pathable():
+                        miner.mine(miner.tile.tile_north, self.determine_block_contents(miner.tile.tile_north))
+                    self.moving(miner, miner.tile.tile_east)
+                    if not miner.tile.tile_east.is_pathable():
+                        miner.mine(miner.tile.tile_east, self.determine_block_contents(miner.tile.tile_east))
+                        miner.build(miner.tile.tile_east, 'support')
+            else:
+                # West
+                if not miner.tile.tile_west.is_pathable():
+                    miner.mine(miner.tile.tile_west, self.determine_block_contents(miner.tile.tile_west))
+                    miner.build(miner.tile.tile_west, 'support')
+                if miner.tile.tile_west.is_pathable():
+                    if not miner.tile.tile_north.is_pathable():
+                        miner.mine(miner.tile.tile_north, self.determine_block_contents(miner.tile.tile_north))
+                    self.moving(miner, miner.tile.tile_west)
+                    if not miner.tile.tile_west.is_pathable():
+                        miner.mine(miner.tile.tile_west, self.determine_block_contents(miner.tile.tile_west))
+                        miner.build(miner.tile.tile_west, 'support')
         return
 
     def depositing(self, miner, miner_index):
@@ -164,6 +202,9 @@ class AI(BaseAI):
         if miner.tile == sellTile:
             self.sell_material(miner)
         self.miner_actions[miner_index] = self.ACTIONS['IDLE']
+
+    def determine_block_contents(self, tile):
+        return tile.ore + tile.dirt
 
     def building(self, miner, miner_index):
         pass
@@ -185,16 +226,24 @@ class AI(BaseAI):
             return True
         return False
 
+    def should_purchase_items(self, miner):
+        if miner.building_materials <= 1:
+            return True
+        return False
+
     def sell_material(self, miner):
         sellTile = self.game.get_tile_at(self.player.base_tile.x, miner.tile.y)
         if sellTile and sellTile.owner == self.player:
             miner.dump(sellTile, "dirt", -1)
             miner.dump(sellTile, "ore", -1)
 
-    def purchase_items(self,miner):
+    def purchase_items(self, miner, miner_index):
         sellTile = self.game.get_tile_at(self.player.base_tile.x, miner.tile.y)
-        if miner.building_materials <= 1:
-            miner.buy('buildingMaterials', 5)
+        if self.should_purchase_items(miner):
+            self.moving(miner,sellTile)
+            if miner.tile == sellTile:
+                miner.buy('buildingMaterials', 5)
+                self.miner_actions[miner_index] = self.ACTIONS['IDLE']
 
     def determine_team(self):
         if self.player.base_tile.x == 0:
@@ -265,3 +314,73 @@ class AI(BaseAI):
     # <<-- Creer-Merge: functions -->> - Code you add between this comment and the end comment will be preserved between Creer re-runs.
     # if you need additional functions for your AI you can add them here
     # <<-- /Creer-Merge: functions -->>
+
+        # WYATTS CODE
+        '''
+        for miner in self.player.miners:
+            if not miner or not miner.tile:
+                continue
+
+
+            # Move to tile next to base
+            if self.team == 'right':
+                miner.buy('buildingMaterials', -1)
+                if not miner.tile.tile_west.is_ladder and miner.tile.tile_west.x != 0:
+                    while miner.moves != 0 and miner.tile.tile_west.x != 0:
+                        miner.build(miner.tile.tile_west, 'ladder')
+                        miner.move(miner.tile.tile_west)
+                        if miner.moves == 0:
+                            return True
+                else:
+                    laddersDone = True
+
+                if laddersDone == True:
+                    if miner.bombs != 0:
+                        if miner.tile.tile_west.x != 0:
+                            while miner.moves != 0:
+                                miner.move(miner.tile.tile_west)
+                                if miner.tile.tile_west.x == 0:
+                                    miner.dump(miner.tile.tile_south, 'bomb', 1)
+                                    return True
+                        else:
+                            miner.dump(miner.tile.tile_south, 'bomb', 1)
+                            return True
+                    else:
+                        if miner.tile.is_base:
+                            miner.buy('bomb', 1)
+                        else:
+                            while miner.tile.is_base != True:
+                                miner.move(miner.tile.tile_east)
+                                if (miner.moves == 0):
+                                    return True;
+            else:
+                miner.buy('buildingMaterials', -1)
+                if not miner.tile.tile_east.is_ladder and miner.tile.tile_east.x != 29:
+                    while miner.moves != 0 and miner.tile.tile_east.x != 29:
+                        miner.build(miner.tile.tile_east, 'ladder')
+                        miner.move(miner.tile.tile_east)
+                        if miner.moves == 0:
+                            return True
+                else:
+                    laddersDone = True
+
+                if laddersDone == True:
+                    if miner.bombs != 0:
+                        if miner.tile.tile_east.x != 29:
+                            while miner.moves != 0:
+                                miner.move(miner.tile.tile_east)
+                                if miner.tile.tile_east.x == 29:
+                                    miner.dump(miner.tile.tile_south, 'bomb', 1)
+                                    return True
+                        else:
+                            miner.dump(miner.tile.tile_south, 'bomb', 1)
+                            return True
+                    else:
+                        if miner.tile.is_base:
+                            miner.buy('bomb', 1)
+                        else:
+                            while miner.tile.is_base != True:
+                                miner.move(miner.tile.tile_west)
+                                if (miner.moves == 0):
+                                    return True;
+            '''
