@@ -35,6 +35,7 @@ class AI(BaseAI):
     def start(self) -> None:
         """This is called once the game starts and your AI knows its player and game. You can initialize your AI here.
         """
+
         # <<-- Creer-Merge: start -->> - Code you add between this comment and the end comment will be preserved between Creer re-runs.
         # replace with your start logic
         # <<-- /Creer-Merge: start -->>
@@ -68,8 +69,6 @@ class AI(BaseAI):
         if len(self.player.miners) < 1 and self.player.money >= self.game.spawn_price:
             self.player.spawn_miner()
 
-
-
         # For each miner
         for miner in self.player.miners:
             if not miner or not miner.tile:
@@ -88,7 +87,7 @@ class AI(BaseAI):
             westTile = miner.tile.tile_west
 
 
-            eastBorder = False;
+            eastBorder = False
             # Mine east and west tiles, hopper side first
             if eastTile.x == self.player.base_tile.x:
                 eastBorder = False
@@ -104,57 +103,23 @@ class AI(BaseAI):
             if sellTile and sellTile.owner == self.player:
                 miner.dump(sellTile, "dirt", -1)
                 miner.dump(sellTile, "ore", -1)
-                if (miner._building_materials == 0):
+                if miner.building_materials <= 1:
                     miner.buy('buildingMaterials', 5)
 
             if (eastTile and eastTile.ore + eastTile.dirt == 0) or (westTile and westTile.ore + westTile.dirt == 0):
                 # Dig down
                 if miner.tile.tile_south:
-                    miner.build(miner.tile, 'ladder')
-                    miner.mine(miner.tile.tile_south, -1)
-                    southTile = miner.tile.tile_south
-                    if southTile.ore == 0 and southTile.dirt == 0:
-                        miner.move(southTile)
+                    if miner.tile.is_ladder:
+                        miner.mine(miner.tile.tile_south, -1)
+                        southTile = miner.tile.tile_south
+                        if southTile.ore == 0 and southTile.dirt == 0:
+                            miner.move(southTile)
+
+            miner.build(miner.tile, 'ladder')
 
 
-
-            """"# Sell all materials
-            sellTile = self.game.get_tile_at(self.player.base_tile.x, miner.tile.y)
-            if sellTile and sellTile.owner == self.player:
-                miner.dump(sellTile, "dirt", -1)
-                miner.dump(sellTile, "ore", -1)
-                print("selling stuff")
-
-            eastTile = miner.tile.tile_east
-            westTile = miner.tile.tile_west
-
-
-            # Mine east and west tiles, hopper side first
-            if eastTile.x == self.player.base_tile.x:
-                if eastTile:
-                    miner.mine(eastTile, 1)
-            else:
-                if westTile.dirt == 1 or westTile.ore == 1:
-                    miner.mine(westTile, 1)
-
-
-            if sellTile and sellTile.owner == self.player:
-                if miner._building_materials == 0:
-                    miner.buy('buildingMaterials', 5)
-
-
-            # Check to make sure east and west tiles are mined
-            if (eastTile and eastTile.ore + eastTile.dirt == 0) or (westTile and westTile.ore + westTile.dirt == 0):
-                # Dig down
-                if miner.tile.tile_south:
-                    miner.mine(miner.tile.tile_south, 1)
-                    print(miner._building_materials)
-                    miner.build(miner.tile.tile_north, 'ladder')
-            southTile = miner.tile.tile_south
-            if (southTile.ore + southTile.dirt == 0):
-                miner.mine(miner.tile.tile_west, 1)"""
         return True
-        # <<-- /Creer-Merge: runTurn -->>
+
 
     def find_path(self, start: 'games.coreminer.tile.Tile', goal: 'games.coreminer.tile.Tile') -> List['games.coreminer.tile.Tile']:
         """A very basic path finding algorithm (Breadth First Search) that when given a starting Tile, will return a valid path to the goal Tile.
